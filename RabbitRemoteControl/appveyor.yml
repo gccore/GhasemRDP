@@ -1,0 +1,199 @@
+#TODO: Change version
+version: "v0.0.27.{build}"
+
+cache:
+  - ..\other_source
+# Clean cached
+# https://www.appveyor.com/docs/build-cache/#cleaning-up-cache
+
+environment:
+  RabbitRemoteControlVersion: v0.0.27
+  STOREPASS:
+    secure: l9BZEU39F1a4vSkhwl0CHR+yh6CD1c7byGzMv+1NUa4=
+  QT_USER:
+    secure: EoBPaPuJ6u9UDYpQWjKhUg==
+  QT_PASSWORD:
+    secure: ejAYGgB+3sBispRxUSr0xw==
+  APPVEYOR_RDP_PASSWORD:
+    secure: PUmp7039ro52579dlxAk59tjpeeyiFbdWvHfLCkjF5c=
+
+  matrix:
+  ##### msvc 2017 ########    
+  #- APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+  #  GENERATORS: "Visual Studio 15 2017"
+  #  TOOLCHAIN_VERSION: 15
+  #  VCPKG_PLATFORM_TOOLSET: v141
+  #  QT_ROOT: C:\Qt\5.12\msvc2017
+  #  BUILD_ARCH: x86
+
+  #- APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+  #  GENERATORS: "Visual Studio 15 2017 Win64"
+  #  TOOLCHAIN_VERSION: 15
+  #  VCPKG_PLATFORM_TOOLSET: v141
+  #  QT_ROOT: C:\Qt\5.12\msvc2017_64
+  #  BUILD_ARCH: x64
+
+  ##### msvc 2015 ######## 
+  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+    GENERATORS: "Visual Studio 14 2015"
+    TOOLCHAIN_VERSION: 14
+    VCPKG_PLATFORM_TOOLSET: v140
+    QT_ROOT: C:\Qt\5.6\msvc2015
+    BUILD_ARCH: x86
+
+matrix:
+  fast_finish: false
+
+init:
+  #- ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+  - set varch=%BUILD_ARCH%
+  - if "%BUILD_ARCH%" == "x64" set varch=amd64
+  - if %TOOLCHAIN_VERSION% LSS 15 (call "C:\Program Files (x86)\Microsoft Visual Studio %TOOLCHAIN_VERSION%.0\VC\vcvarsall.bat" %varch%) else (call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" %varch%)  
+  - echo NUMBER_OF_PROCESSORS=%NUMBER_OF_PROCESSORS%
+  - echo PROCESSOR_IDENTIFIER=%PROCESSOR_IDENTIFIER%
+  - if NOT "%QT_ROOT%" == "NO" for /f "delims=" %%i in ('%QT_ROOT%/bin/qmake -query QT_VERSION') do (set QT_VERSION=%%i)
+  - echo QT_ROOT=%QT_ROOT%
+  - echo QT_VERSION=%QT_VERSION%
+  - del C:\msys64\usr\bin\link.exe
+
+install:
+  - git submodule update --init --recursive
+
+before_build:
+  #- set VCPKG_DIR=C:\Tools\vcpkg
+  - set OTHER_SOURCE=%APPVEYOR_BUILD_FOLDER%\..\other_source
+  - set INSTALL_DIR=%OTHER_SOURCE%\install_dir
+  - set VCPKG_DIR=%OTHER_SOURCE%\vcpkg
+  - if not exist "%OTHER_SOURCE%" ( mkdir "%OTHER_SOURCE%" )
+
+  - cd %OTHER_SOURCE%
+  - set CMAKE_VERSION=3.26.4
+  - if not exist cmake-%CMAKE_VERSION%-windows-i386 (curl -fsSL -o cmake-%CMAKE_VERSION%-windows-i386.zip https://github.com/Kitware/CMake/releases/download/v%CMAKE_VERSION%/cmake-%CMAKE_VERSION%-windows-i386.zip && 7z x cmake-%CMAKE_VERSION%-windows-i386.zip)
+  - cd cmake-%CMAKE_VERSION%-windows-i386
+  - set PATH="%CD%/bin";%PATH%
+
+  - cd %OTHER_SOURCE%
+  - if not exist "%INSTALL_DIR%" (mkdir "%INSTALL_DIR%")
+  - cd %OTHER_SOURCE%
+  - if not exist vcpkg (git clone "https://github.com/microsoft/vcpkg.git" && cd "%VCPKG_DIR%" && git checkout -b 56765209ec0e92c58a5fd91aa09c46a16d660026 56765209ec0e92c58a5fd91aa09c46a16d660026 )
+  - cd %VCPKG_DIR%
+  - bootstrap-vcpkg.bat
+  - vcpkg --triplet %BUILD_ARCH%-windows install zlib openssl libpng pixman libjpeg-turbo freerdp
+
+#  - cd "%OTHER_SOURCE%"
+#  - if not exist FreeRDP (git clone https://github.com/FreeRDP/FreeRDP.git)
+#  - cd FreeRDP
+#  - git checkout -b 1da0d63c7850275dd56a59749f51a60cf6eaabd6 1da0d63c7850275dd56a59749f51a60cf6eaabd6
+#  - git submodule update --init --recursive
+#  - cmake -E make_directory build
+#  - cd build
+#  - cmake .. -G"%GENERATORS%" -DCMAKE_BUILD_TYPE=Release -DWITH_SERVER=ON -DCHANNEL_URBDRC=OFF -DCMAKE_INSTALL_PREFIX="%INSTALL_DIR%" -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake"
+#  - cmake --build . --config Release
+#  - cmake --build . --config Release --target install
+
+#  - cd "%OTHER_SOURCE%"
+#  - if not exist libdatachannel (git clone https://github.com/paullouisageneau/libdatachannel.git)
+#  - cd libdatachannel
+#  - git submodule update --init --recursive
+#  - git checkout -b v0.14.3 v0.14.3
+#  - cmake -E make_directory build
+#  - cd build
+#  - cmake .. -G"%GENERATORS%" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="%INSTALL_DIR%" -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake"
+#  - cmake --build . --config Release --target install
+#  #- if NOT "%TOOLCHAIN_VERSION%" == "14" (cmake --build . --config Release --target install)
+ 
+  - cd "%OTHER_SOURCE%"
+  - if not exist libvncserver (git clone "https://github.com/KangLin/libvncserver.git")
+  - cd libvncserver
+  - cmake -E make_directory build
+  - cd build
+  - cmake .. -G"%GENERATORS%" -DCMAKE_BUILD_TYPE=Release -DWITH_OPENSSL=ON -DWITH_GCRYPT=OFF -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF -DCMAKE_INSTALL_PREFIX="%INSTALL_DIR%" -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake"
+  - cmake --build . --config Release
+  - cmake --build . --config Release --target install
+
+  - cd "%OTHER_SOURCE%"
+  - if not exist tigervnc (git clone https://github.com/KangLin/tigervnc.git)
+  - cd tigervnc
+  - cmake -E make_directory build
+  - cd build
+  - cmake .. -G"%GENERATORS%" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="%INSTALL_DIR%" -DBUILD_TESTS=OFF -DBUILD_VIEWER=OFF -DENABLE_NLS=OFF -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake"
+  - cmake --build . --config Release
+  - cmake --build . --config Release --target install
+
+  #- cd "%OTHER_SOURCE%"
+  #- if not exist qxmpp (git clone -b v1.4.0 https://github.com/qxmpp-project/qxmpp.git)
+  #- cd qxmpp
+  #- cmake -E make_directory build
+  #- cd build
+  #- cmake .. -G"%GENERATORS%" -DQT_DIR=%QT_ROOT%/lib/cmake/Qt5 -DQt5_DIR=%QT_ROOT%/lib/cmake/Qt5 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="%INSTALL_DIR%" -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake"
+  #- cmake --build . --config Release
+  #- cmake --build . --config Release --target install
+
+  #- cd "%OTHER_SOURCE%"
+  #- if not exist qt-solutions (git clone https://github.com/KangLin/qt-solutions.git)
+  #- cd qt-solutions/qtservice
+  #- cmake -E make_directory build
+  #- cd build
+  #- cmake .. -G"%GENERATORS%" -DQT_DIR=%QT_ROOT%/lib/cmake/Qt5 -DQt5_DIR=%QT_ROOT%/lib/cmake/Qt5 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="%INSTALL_DIR%" -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake"
+  #- cmake --build . --config Release
+  #- cmake --build . --config Release --target install
+
+  - cd "%OTHER_SOURCE%"
+  - if exist RabbitCommon (rmdir /s /q "RabbitCommon")
+  - if not exist RabbitCommon (git clone "https://github.com/KangLin/RabbitCommon.git")
+  - set RabbitCommon_DIR=%OTHER_SOURCE%/RabbitCommon
+
+build_script:
+  - cd %APPVEYOR_BUILD_FOLDER%
+  - mkdir build
+  - cd build
+  - cmake .. -G"%GENERATORS%" -DQT_DIR=%QT_ROOT%/lib/cmake/Qt5 -DQt5_DIR=%QT_ROOT%/lib/cmake/Qt5 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="%cd%/install" -DLibVNCServer_DIR="%INSTALL_DIR%/lib/cmake/LibVNCServer" -Dtigervnc_DIR="%INSTALL_DIR%/lib/cmake" -DCMAKE_PREFIX_PATH="%INSTALL_DIR%" -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake" -DBUILD_FREERDP=ON #-DLibDataChannel_DIR="%INSTALL_DIR%/share/cmake/LibDataChannel"
+  - cmake --build . --config Release
+  - cmake --build . --config Release --target install
+  - echo "xcopy /Y %VCPKG_DIR%\installed\%BUILD_ARCH%-windows\bin\*.dll install\bin"
+  - xcopy /Y %VCPKG_DIR%\installed\%BUILD_ARCH%-windows\bin\*.dll install\bin
+  - xcopy /Y %INSTALL_DIR%\bin\*.dll install\bin
+  - call "C:\Program Files (x86)\NSIS\makensis.exe" Install.nsi
+  - copy RabbitRemoteControl_setup_%RabbitRemoteControlVersion%.exe RabbitRemoteControl_%RabbitRemoteControlVersion%_windowsxp_setup.exe
+  #- call "install\bin\RabbitRemoteControlApp.exe" -f "update_windows.xml" --pf RabbitRemoteControl_setup_%RabbitRemoteControlVersion%.exe -m "%RabbitRemoteControlVersion%"
+
+artifacts:
+  - path: build\RabbitRemoteControl_%RabbitRemoteControlVersion%_windowsxp_setup.exe
+
+  #- path: build\update_windows.xml
+
+  - path: build\install\
+    name: RabbitRemoteControl_windowsxp_%RabbitRemoteControlVersion%
+    type: zip
+
+test: off
+
+#See: https://www.appveyor.com/docs/deployment/github/
+deploy:
+  #provider: FTP 
+  #protocol: sftp 
+  #host: frs.sourceforge.net 
+  #username: kl222,rabbitim
+  #密码用这个加密 https://ci.appveyor.com/tools/encrypt
+  #password:
+  #  secure: 2WEtOQrdty3V3g0aEVvS3Q==
+  #folder: pfs  #link pfs to /home/frs/project/r/ra/rabbitim
+  #draft: false
+  #active_mode: false
+  #on:
+    #branch: master
+
+  - provider: GitHub
+    # token : https://github.com/settings/tokens
+    # password encrypt: https://ci.appveyor.com/tools/encrypt
+    auth_token:
+      secure: xk9mUybB/QLi8+bJobhnOJbuYFdnys9DVLXcOGtbVXnuIZwvKxxQCoFIyVnUf6PP
+    #artifact:
+    #draft: true
+    #prerelease: true
+    force_update: false
+    on:
+      TOOLCHAIN_VERSION: 14
+      #QT_VERSION: 5.6.3
+      BUILD_ARCH: x86
+      appveyor_repo_tag: true        # deploy on tag push only

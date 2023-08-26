@@ -1,0 +1,217 @@
+# Author: Kang Lin <kl222@126.com>
+
+cmake_minimum_required(VERSION 3.21)
+MESSAGE(STATUS "Found CMake ${CMAKE_VERSION}")
+
+project(RabbitRemoteControl
+    DESCRIPTION "Rabbit Remote Control"
+    HOMEPAGE_URL "https://github.com/KangLin/RabbitRemoteControl"
+    )
+
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+#set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "verbose")
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
+if(POLICY CMP0083)
+    cmake_policy(SET CMP0083 NEW)
+endif()
+
+if(POLICY CMP0020)
+    cmake_policy(SET CMP0020 NEW)
+endif()
+
+if(POLICY CMP0021)
+    cmake_policy(SET CMP0021 NEW)
+endif()
+
+IF(MSVC)
+    # This option is to enable the /MP switch for Visual Studio 2005 and above compilers
+    OPTION(WIN32_USE_MP "Set to ON to build with the /MP option (Visual Studio 2005 and above)." ON)
+    MARK_AS_ADVANCED(WIN32_USE_MP)
+    IF(WIN32_USE_MP)
+        #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+        add_compile_options(/MP)
+    ENDIF(WIN32_USE_MP)
+    add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+ENDIF(MSVC)
+
+SET(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libs")
+if (BUILD_SHARED_LIBS)
+    add_definitions(-DBUILD_SHARED_LIBS)
+    if (CMAKE_COMPILER_IS_GNUCXX AND NOT MINGW)
+       # Just setting CMAKE_POSITION_INDEPENDENT_CODE should be enough to set
+       # -fPIC for GCC but sometimes it still doesn't get set, so make sure it
+       # does.
+       add_definitions("-fPIC")
+    endif()
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+else(BUILD_SHARED_LIBS)
+    add_definitions(-DQT_STATICPLUGIN)
+endif(BUILD_SHARED_LIBS)
+
+include(CMakePackageConfigHelpers)
+include(GNUInstallDirs)
+include(GenerateExportHeader)
+include(CheckIncludeFile)
+include(CheckIncludeFileCXX)
+include(CheckFunctionExists)
+
+#CHECK_INCLUDE_FILE_CXX("string" HAVE_STRING_H)
+#check_include_file("math.h" HAVE_MATH_H)
+
+#check_function_exists("fabs" HAVE_FABS)
+
+set(BUILD_PLATFORM "${CMAKE_SYSTEM_NAME}")
+# ----------------------------------------------------------------------------
+# Detect compiler and target platform architecture
+# ----------------------------------------------------------------------------
+if(NOT ANDROID)
+    if(X86_64 OR CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(BUILD_ARCH x86_64)
+    elseif(X86 OR CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(BUILD_ARCH x86)
+    endif()
+else()
+    set(BUILD_ARCH ${CMAKE_SYSTEM_PROCESSOR})
+endif()
+
+# Open qt build tool
+SET(CMAKE_AUTOUIC ON)
+SET(CMAKE_AUTOMOC ON)
+SET(CMAKE_AUTORCC ON)
+
+# Need qt components
+if(CMAKE_VERSION VERSION_LESS "3.7.0")
+    set(CMAKE_INCLUDE_CURRENT_DIR ON)
+endif()
+SET(QT_COMPONENTS Core)
+find_package(QT NAMES Qt6 Qt5 COMPONENTS Core)
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS ${QT_COMPONENTS})
+message("QT_VERSION:${Qt${QT_VERSION_MAJOR}_VERSION}")
+if(Qt${QT_VERSION_MAJOR}_FOUND)
+    FOREACH(_COMPONENT ${QT_COMPONENTS})
+        list(APPEND QT_LIBRARIES Qt${QT_VERSION_MAJOR}::${_COMPONENT})
+    ENDFOREACH()
+endif()
+get_filename_component(QT_INSTALL_DIR "${Qt${QT_VERSION_MAJOR}_DIR}/../../.." ABSOLUTE)
+message("Qt${QT_VERSION_MAJOR}_DIR:${Qt${QT_VERSION_MAJOR}_DIR}")
+message("QT_INSTALL_DIR:${QT_INSTALL_DIR}")
+message("${PROJECT_NAME} QT_LIBRARIES:${QT_LIBRARIES}")
+
+if(NOT RabbitCommon_DIR)
+    set(RabbitCommon_DIR $ENV{RabbitCommon_DIR})
+    if(NOT RabbitCommon_DIR)
+        set(RabbitCommon_DIR ${CMAKE_SOURCE_DIR}/RabbitCommon)
+    endif()
+endif()
+if(DEFINED RabbitCommon_DIR AND EXISTS ${RabbitCommon_DIR}/Src)
+    add_subdirectory(${RabbitCommon_DIR}/Src ${CMAKE_BINARY_DIR}/RabbitCommon)
+else()
+    message("1. Please download RabbitCommon source code from https://github.com/KangLin/RabbitCommon")
+    message("   ag:")
+    message("       git clone https://github.com/KangLin/RabbitCommon.git")
+    message("2. Then set cmake value or environment variable RabbitCommon_DIR to download root directory.")
+    message("   ag:")
+    message(FATAL_ERROR "       cmake -DRabbitCommon_DIR= ")
+endif()
+
+GET_VERSION(OUT_VERSION RabbitRemoteControl_VERSION
+    OUT_REVISION RabbitRemoteControl_REVISION)
+IF(NOT RabbitRemoteControl_VERSION)
+    SET(RabbitRemoteControl_VERSION "v0.0.27")
+ENDIF()
+message("RabbitRemoteControl_VERSION:${RabbitRemoteControl_VERSION};Revision:${RabbitRemoteControl_REVISION}")
+set(VERSION ${RabbitRemoteControl_VERSION})
+
+add_subdirectory(Channel)
+cmake_dependent_option(BUILD_CLIENT "Build Client" ON WITH_GUI OFF)
+if(BUILD_CLIENT)
+    add_subdirectory(Client)
+endif(BUILD_CLIENT)
+find_package(QtService)
+cmake_dependent_option(BUILD_SERVICE "Build service" ON QtService_FOUND OFF)
+if(BUILD_SERVICE)
+    add_subdirectory(Service)
+endif(BUILD_SERVICE)
+option(BUILD_PLUGINS "Build plugins" ON)
+if(BUILD_PLUGINS)
+    add_subdirectory(Plugins ${CMAKE_BINARY_DIR}/build_plugins)
+endif(BUILD_PLUGINS)
+option(BUILD_APP "Build applaction" ON)
+if(BUILD_APP)
+    add_subdirectory(App)
+endif(BUILD_APP)
+option(BUILD_EXAMPLE "Build example" OFF)
+if(BUILD_EXAMPLE)
+    add_subdirectory(Example)
+endif()
+
+## Create install runtime target
+#add_custom_target(install-runtime
+#  COMMAND
+#     "${CMAKE_COMMAND}" -DCMAKE_INSTALL_COMPONENT=Runtime
+#     -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_install.cmake"
+#)
+## Create uninstall runtime target
+#add_custom_target(uninstall-runtime
+#  COMMAND
+#     "${CMAKE_COMMAND}" -DCMAKE_INSTALL_COMPONENT=Runtime
+#     -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+#)
+## Create will be delete files
+#CONFIGURE_FILE(
+#    "${RabbitCommon_DIR}/cmake/cmake_uninstall.cmake.in"
+#    "${CMAKE_BINARY_DIR}/cmake_uninstall.cmake"
+#    IMMEDIATE @ONLY)
+## Create unistall target
+#ADD_CUSTOM_TARGET(uninstall
+#    "${CMAKE_COMMAND}" -P "${CMAKE_BINARY_DIR}/cmake_uninstall.cmake"
+#    DEPENDS uninstall-runtime)
+
+iF(WIN32)
+    INSTALL(FILES Install/Install.nsi DESTINATION "${CMAKE_BINARY_DIR}"
+        COMPONENT Runtime)
+endif()
+# Install other files
+set(OTHER_FILES
+    License.md
+    Authors.md
+    ChangeLog.md
+    Authors_zh_CN.md
+    ChangeLog_zh_CN.md)
+if(ANDROID)
+    INSTALL(FILES ${OTHER_FILES} DESTINATION "assets" COMPONENT Runtime)
+else()
+    INSTALL(FILES ${OTHER_FILES} DESTINATION "." COMPONENT Runtime)
+endif()
+
+option(BUILD_DOCS "Generating API documentation" OFF)
+if(BUILD_DOCS)
+    find_package(Doxygen)
+    if(DOXYGEN_FOUND)
+        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/Doxygen)
+        file(COPY ${CMAKE_SOURCE_DIR}/docs/Doxygen/index.html
+            DESTINATION ${CMAKE_BINARY_DIR}/Doxygen)
+        foreach(OUTPUT_LANGUAGE English Chinese)
+            set(MAIN_README "${CMAKE_SOURCE_DIR}/docs/Doxygen/Develop.md")
+            set(PROJECT_NAME "Rabbit Remote Control")
+            if(OUTPUT_LANGUAGE STREQUAL "Chinese")
+                set(PROJECT_NAME "玉兔远程控制")
+                set(MAIN_README "${CMAKE_SOURCE_DIR}/docs/Doxygen/Develop_zh_CN.md")
+            endif()
+            configure_file(${CMAKE_SOURCE_DIR}/Doxyfile.in ${CMAKE_BINARY_DIR}/Doxyfile_${OUTPUT_LANGUAGE} @ONLY)
+            add_custom_target(doc_${OUTPUT_LANGUAGE} ALL
+                ${DOXYGEN_EXECUTABLE} ${CMAKE_BINARY_DIR}/Doxyfile_${OUTPUT_LANGUAGE} # &> doxygen.log
+                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+                COMMENT "Generating API documentation with Doxygen" VERBATIM
+                )
+        endforeach()
+        install(DIRECTORY ${CMAKE_BINARY_DIR}/Doxygen/
+            DESTINATION ${CMAKE_INSTALL_DOCDIR}/${OUTPUT_LANGUAGE}
+                COMPONENT Runtime)
+    endif(DOXYGEN_FOUND)
+endif(BUILD_DOCS)
