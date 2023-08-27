@@ -56,17 +56,12 @@ LIST(APPEND RCC_FILES Resource/Resource.qrc)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core Gui Widgets)
     
 ADD_TARGET(NAME ${PROJECT_NAME}
-    ISEXE
-    ISWINDOWS
     VERSION ${RabbitRemoteControl_VERSION}
     PRIVATE_DEFINITIONS RabbitRemoteControl_VERSION="${RabbitRemoteControl_VERSION}"
       RabbitRemoteControl_REVISION="${RabbitRemoteControl_REVISION}"
     SOURCE_FILES ${SOURCE_FILES} ${HEADER_FILES} ${SOURCE_UI_FILES} ${RCC_FILES}
     PRIVATE_LIBS Client)
 
-add_library(${PROJECT_NAME}
-
-)
 if(Log4Qt_FOUND)
     if(NOT EXISTS ${CMAKE_BINARY_DIR}/RabbitRemoteControl/etc/RabbitRemoteControl_log4qt.conf)
         configure_file(${CMAKE_SOURCE_DIR}/RabbitRemoteControl/etc/RabbitRemoteControl_log4qt.debug.conf
