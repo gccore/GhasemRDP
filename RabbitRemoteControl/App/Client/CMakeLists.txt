@@ -14,6 +14,7 @@ set(SOURCE_FILES
     FavoriteView.cpp
     FavoriteMimeData.cpp
     FrmListConnects.cpp
+    AppWidget.cpp
     )
 
 set(HEADER_FILES
@@ -27,6 +28,7 @@ set(HEADER_FILES
     FavoriteView.h
     FavoriteMimeData.h
     FrmListConnects.h
+    AppWidget.h
     )
 
 set(SOURCE_UI_FILES
@@ -61,6 +63,11 @@ ADD_TARGET(NAME ${PROJECT_NAME}
       RabbitRemoteControl_REVISION="${RabbitRemoteControl_REVISION}"
     SOURCE_FILES ${SOURCE_FILES} ${HEADER_FILES} ${SOURCE_UI_FILES} ${RCC_FILES}
     PRIVATE_LIBS Client)
+
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+)
 
 if(Log4Qt_FOUND)
     if(NOT EXISTS ${CMAKE_BINARY_DIR}/RabbitRemoteControl/etc/RabbitRemoteControl_log4qt.conf)

@@ -1034,7 +1034,7 @@ function(ADD_TARGET)
         target_include_directories(${PARA_NAME} PUBLIC ${PARA_INCLUDE_DIRS})
     endif()
     if(DEFINED PARA_PRIVATE_INCLUDE_DIRS AND PARA_PRIVATE_INCLUDE_DIRS)
-        target_include_directories(${PARA_NAME} PRIVATE ${PARA_PRIVATE_INCLUDE_DIRS})
+        target_include_directories(${PARA_NAME} PUBLIC ${PARA_PRIVATE_INCLUDE_DIRS})
     endif()
 
     # Target compile options

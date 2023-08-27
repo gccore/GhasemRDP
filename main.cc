@@ -1,6 +1,14 @@
-#include <iostream>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QWidget>
+//
+#include <AppWidget.h>
 
-int main()
+int main(int argc, char *argv[])
 {
-        std::puts(__PRETTY_FUNCTION__);
+        QApplication app(argc, argv);
+
+        AppWidget *widget = new AppWidget;
+        widget->show();
+
+        return app.exec();
 }
